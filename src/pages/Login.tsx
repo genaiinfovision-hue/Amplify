@@ -1,35 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, BrainCircuit } from 'lucide-react';
+import { BrainCircuit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFamilies } from '../context/FamiliesContext';
 import { loadCatalogAssets, type CatalogAsset } from '../lib/catalog';
-import { CopyrightFooter } from '../components/layout/CopyrightFooter';
+import {
+  handleAzureRedirect,
+  isAzureSsoConfigured,
+  signInWithAzureSso,
+} from '../lib/azureAuth';
 
-type LoginFormInputs = {
-  email: string;
-  password: string;
-};
+function MicrosoftLogo() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 23 23" aria-hidden>
+      <rect x="1" y="1" width="10" height="10" fill="#f25022" />
+      <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
+      <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
+      <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+    </svg>
+  );
+}
 
 export const Login: React.FC = () => {
-  const [showPassword, setShowPassword] = useState(false);
   const [assets, setAssets] = useState<CatalogAsset[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { families, loading: familiesLoading } = useFamilies();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-  } = useForm<LoginFormInputs>({
-    mode: 'onChange',
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -49,18 +48,57 @@ export const Login: React.FC = () => {
     };
   }, []);
 
-  const onSubmit = (data: LoginFormInputs) => {
-    const emailParts = data.email.split('@')[0].split('.');
-    const fullName = emailParts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-    const initials = emailParts.map(part => part.charAt(0).toUpperCase()).join('').substring(0, 2) || 'U';
+  useEffect(() => {
+    let cancelled = false;
 
-    localStorage.setItem('user', JSON.stringify({
-      name: fullName,
-      initials: initials,
-      email: data.email
-    }));
+    async function completeRedirectLogin() {
+      if (!isAzureSsoConfigured) {
+        setIsCheckingSession(false);
+        return;
+      }
 
-    navigate('/');
+      try {
+        const user = await handleAzureRedirect();
+        if (!cancelled && user?.email) {
+          navigate('/', { replace: true });
+          return;
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Microsoft sign-in could not be completed. Please try again.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCheckingSession(false);
+        }
+      }
+    }
+
+    void completeRedirectLogin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const handleSsoSignIn = async () => {
+    setError(null);
+    setIsSigningIn(true);
+
+    try {
+      await signInWithAzureSso();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to start Microsoft sign-in. Please try again.',
+      );
+      setIsSigningIn(false);
+    }
   };
 
   const familyEntries = Object.entries(families);
@@ -68,20 +106,17 @@ export const Login: React.FC = () => {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-        {/* Left Section - Branding Area */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="relative flex w-full flex-col justify-center overflow-hidden bg-[#131e36] p-8 text-white md:w-[55%] md:p-16 lg:w-1/2 lg:p-24"
         >
-          {/* Decorative background shapes */}
           <div className="pointer-events-none absolute right-[-10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-[#1e2f50] opacity-50 blur-3xl mix-blend-screen" />
           <div className="pointer-events-none absolute bottom-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-[#0a1120] opacity-80 blur-3xl" />
-          
+
           <div className="relative z-10 max-w-xl">
-            {/* App brand — unchanged */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
@@ -93,7 +128,7 @@ export const Login: React.FC = () => {
               <span className="text-2xl font-bold tracking-tight text-white/90">AIMPLIFY</span>
             </motion.div>
 
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
@@ -102,7 +137,7 @@ export const Login: React.FC = () => {
               AI Capabilities & <br /> Accelerator Platform
             </motion.h1>
 
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
@@ -111,8 +146,7 @@ export const Login: React.FC = () => {
               Discover, deploy, and demonstrate InfoVision's AI assets — from prompt libraries and agent patterns to production-ready accelerators.
             </motion.p>
 
-            {/* Platform families — same keys as Home; counts from catalog */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
@@ -161,8 +195,7 @@ export const Login: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Right Section - Login Form */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
@@ -178,103 +211,54 @@ export const Login: React.FC = () => {
                 height={112}
               />
             </div>
+
             <div className="mb-10 text-center md:text-left">
               <h2 className="mb-2 text-3xl font-bold text-slate-900">Sign in</h2>
-              <p className="text-slate-500">Use your InfoVision credentials</p>
+              <p className="text-slate-500">Use your InfoVision Microsoft account</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700" htmlFor="email">
-                  Email
-                </label>
-                <div className="group relative">
-                  <input
-                    id="email"
-                    type="text"
-                    inputMode="email"
-                    placeholder="you@infovision.com"
-                    className={`w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none focus:ring-2 focus:ring-opacity-20 ${
-                      errors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-blue-500 focus:ring-blue-500'
-                    } bg-slate-50/50 focus:bg-white`}
-                    {...register('email', {
-                      required: 'Email is required',
-                      pattern: {
-                        value: /^[a-zA-Z0-9._%+-]+@infovision\.com$/,
-                        message: 'Please use your InfoVision company email ID.',
-                      },
-                    })}
-                  />
-                </div>
-                {errors.email && (
-                  <motion.p 
-                    initial={{ opacity: 0, height: 0 }} 
-                    animate={{ opacity: 1, height: 'auto' }} 
-                    className="mt-1 text-sm text-red-500"
-                  >
-                    {errors.email.message}
-                  </motion.p>
-                )}
+            {isCheckingSession ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
               </div>
+            ) : (
+              <div className="space-y-4">
+                <motion.button
+                  whileHover={{ scale: isAzureSsoConfigured && !isSigningIn ? 1.01 : 1 }}
+                  whileTap={{ scale: isAzureSsoConfigured && !isSigningIn ? 0.99 : 1 }}
+                  type="button"
+                  onClick={() => void handleSsoSignIn()}
+                  disabled={!isAzureSsoConfigured || isSigningIn}
+                  className={`flex w-full items-center justify-center gap-3 rounded-xl border py-3.5 font-medium shadow-sm transition-all duration-300 ${
+                    isAzureSsoConfigured && !isSigningIn
+                      ? 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md'
+                      : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  <MicrosoftLogo />
+                  {isSigningIn ? 'Redirecting to Microsoft…' : 'Sign in with SSO'}
+                </motion.button>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700" htmlFor="password">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    className={`w-full rounded-xl border py-3 pl-4 pr-12 transition-all duration-200 outline-none focus:ring-2 focus:ring-opacity-20 ${
-                      errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-blue-500 focus:ring-blue-500'
-                    } bg-slate-50/50 focus:bg-white`}
-                    {...register('password', { required: 'Password is required' })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <motion.p 
-                    initial={{ opacity: 0, height: 0 }} 
-                    animate={{ opacity: 1, height: 'auto' }} 
-                    className="mt-1 text-sm text-red-500"
-                  >
-                    {errors.password.message}
-                  </motion.p>
+                {!isAzureSsoConfigured && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Microsoft SSO is not configured. Add <code className="rounded bg-white/80 px-1">VITE_AZURE_CLIENT_ID</code> and <code className="rounded bg-white/80 px-1">VITE_AZURE_TENANT_ID</code> to your environment.
+                  </p>
                 )}
+
+                {error && (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </p>
+                )}
+
+                <p className="text-center text-sm text-slate-500">
+                  Secured with Microsoft Entra ID (Azure AD)
+                </p>
               </div>
-
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                type="submit"
-                disabled={!isValid}
-                className={`w-full rounded-xl py-3.5 font-medium text-white shadow-lg transition-all duration-300 ${
-                  isValid 
-                    ? 'bg-blue-500 shadow-blue-500/25 hover:bg-blue-600 hover:shadow-blue-500/40' 
-                    : 'cursor-not-allowed bg-slate-300 shadow-none'
-                }`}
-              >
-                Sign in
-              </motion.button>
-            </form>
-
-            <div className="mt-8 text-center">
-              <p className="text-sm text-slate-500">
-                SSO via Microsoft Entra ID available
-              </p>
-            </div>
+            )}
           </div>
         </motion.div>
       </div>
-
-      <CopyrightFooter className="shrink-0" />
     </div>
   );
 };

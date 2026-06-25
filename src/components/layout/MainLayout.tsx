@@ -3,6 +3,7 @@ import { Home, LayoutGrid, ListChecks, PlusCircle, Search, X, LogOut, ChevronDow
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '../../utils/cn';
 import { loadSubmissions } from '../../lib/pipeline';
+import { signOutFromAzureSso } from '../../lib/azureAuth';
 import { CopyrightFooter } from './CopyrightFooter';
 
 export function MainLayout() {
@@ -168,7 +169,7 @@ export function MainLayout() {
                   onClick={() => {
                     setIsProfileOpen(false);
                     localStorage.removeItem('user');
-                    navigate('/login');
+                    void signOutFromAzureSso().catch(() => navigate('/login'));
                   }}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >

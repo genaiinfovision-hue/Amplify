@@ -70,13 +70,20 @@ export function Home() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back, {userName}</h1>
           <p className="mt-1 text-sm text-gray-500">Here's what's happening across the AIMPLIFY platform</p>
         </div>
-        <div className="flex shrink-0 items-center justify-center sm:justify-end">
+        <div className="flex shrink-0 items-center justify-center gap-4 sm:justify-end">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-purple-500 text-xs font-bold text-white shadow-sm">
+              Ai
+            </div>
+            <span className="text-lg font-bold tracking-tight text-slate-800">AIMPLIFY</span>
+          </div>
+          <div className="h-10 w-px shrink-0 bg-gray-200" aria-hidden />
           <img
             src="/infovision_logo.png"
             alt="InfoVision"
-            className="h-16 w-auto max-w-[min(100%,360px)] object-contain sm:h-[4.5rem] md:h-20"
-            width={360}
-            height={80}
+            className="h-12 w-auto max-w-[min(100%,220px)] object-contain sm:h-14 md:h-16"
+            width={220}
+            height={64}
           />
         </div>
       </div>

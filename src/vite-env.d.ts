@@ -17,6 +17,9 @@ interface ImportMetaEnv {
   readonly VITE_ARCHEVAL_TABLE?: string;
   readonly VITE_ARCHEVAL_LEGACY_TABLE?: string;
   readonly VITE_SUPABASE_KEY?: string;
+  readonly VITE_AZURE_CLIENT_ID?: string;
+  readonly VITE_AZURE_TENANT_ID?: string;
+  readonly VITE_AZURE_REDIRECT_URI?: string;
 }
 
 interface ImportMeta {
