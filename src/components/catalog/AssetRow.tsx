@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { defaultFamilyBadge, useFamilies } from '../../context/FamiliesContext';
 import { CC, CL, MC, ML } from '../../data/uiConstants';
+import { catalogAssetPath } from '../../lib/catalogSlug';
 import { ArrowRight } from 'lucide-react';
 
 interface AssetRowProps {
@@ -20,7 +21,7 @@ export function AssetRow({ asset, index }: AssetRowProps) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3, delay: index * 0.03 }}
       whileHover={{ x: 4, backgroundColor: '#FAFBFC' }}
-      onClick={() => navigate(`/catalog/${asset.id}`)}
+      onClick={() => navigate(catalogAssetPath(asset))}
       className="group flex cursor-pointer items-center gap-4 rounded-lg border border-gray-200 bg-white p-3.5 shadow-sm transition-all hover:shadow-md"
       style={{ borderLeft: `4px solid ${fm.color}` }}
     >

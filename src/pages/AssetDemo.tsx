@@ -4,18 +4,19 @@ import { ArrowLeft } from 'lucide-react';
 import { ArchevalTool } from '../features/archeval/ArchevalTool';
 import { Button } from '../components/ui/Button';
 import { getCatalogAsset, type CatalogAsset } from '../lib/catalog';
+import { catalogAssetPath } from '../lib/catalogSlug';
 import { resolveInternalDemoSlug } from '../lib/launchDemo';
 
 export function AssetDemo() {
-  const { id } = useParams();
+  const { slug: routeSlug } = useParams();
   const navigate = useNavigate();
   const [asset, setAsset] = useState<CatalogAsset | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!routeSlug) return;
 
-    const assetId = id;
+    const assetId = routeSlug;
     let cancelled = false;
 
     async function hydrate() {
@@ -31,7 +32,7 @@ export function AssetDemo() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [routeSlug]);
 
   if (isLoading) {
     return (
@@ -53,7 +54,6 @@ export function AssetDemo() {
   }
 
   const slug = resolveInternalDemoSlug(asset);
-  const catalogRouteId = asset.sourceSubmissionId ?? asset.id;
 
   if (!slug) {
     const externalUrl = asset.launchDemoUrl ?? asset.demoUrl;
@@ -69,7 +69,7 @@ export function AssetDemo() {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <h2 className="text-xl font-bold text-gray-900">No embedded demo available</h2>
-        <Button className="mt-4" onClick={() => navigate(`/catalog/${catalogRouteId}`)}>
+        <Button className="mt-4" onClick={() => navigate(catalogAssetPath(asset))}>
           Back to Asset
         </Button>
       </div>
@@ -82,7 +82,7 @@ export function AssetDemo() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() => navigate(`/catalog/${catalogRouteId}`)}
+            onClick={() => navigate(catalogAssetPath(asset))}
             className="inline-flex items-center gap-2 text-sm font-semibold text-sky-600 transition-colors hover:text-sky-700"
           >
             <ArrowLeft className="h-4 w-4" />

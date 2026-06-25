@@ -1,4 +1,5 @@
 import { REGISTRY_ASSETS } from '../data/registryAssets';
+import { assignCatalogSlugs } from './catalogSlug';
 import { resolveWatchDemoUrl } from './demoMediaUrl';
 import { supabase } from './supabase';
 import { lookupSubmissionRow, rowToSubmission, type PipelineSubmission, type SubmissionRow } from './pipeline';
@@ -38,6 +39,7 @@ export type CatalogEffort = 'low' | 'medium' | 'high';
 
 export type CatalogAsset = {
   id: string;
+  slug: string;
   name: string;
   family: CatalogFamily;
   category: string;
@@ -135,30 +137,48 @@ function compareSubmissionDate(a: PipelineSubmission, b: PipelineSubmission) {
  */
 export async function loadCatalogAssets(): Promise<CatalogAsset[]> {
   const fromSubmissions = await loadCatalogFromSubmissions();
-  if (fromSubmissions.length) return fromSubmissions;
+  if (fromSubmissions.length) return assignCatalogSlugs(fromSubmissions);
 
   const fromAssets = await loadAssetsFromDbFallback();
-  if (fromAssets.length) return fromAssets;
+  if (fromAssets.length) return assignCatalogSlugs(fromAssets);
 
-  return REGISTRY_ASSETS.map(registryToCatalogAsset);
+  return assignCatalogSlugs(REGISTRY_ASSETS.map(registryToCatalogAsset));
 }
 
-/** Resolve a catalog asset by catalog id (e.g. ATL-001) or submission UUID. */
-export async function getCatalogAsset(id: string): Promise<CatalogAsset | null> {
-  const trimmed = id?.trim();
+/** Resolve a catalog asset by URL slug (e.g. datasmith-synthetic-data-generator) or legacy id (ATL-002). */
+export async function getCatalogAsset(routeParam: string): Promise<CatalogAsset | null> {
+  const trimmed = routeParam?.trim();
   if (!trimmed) return null;
 
-  const fromSubmission = await getCatalogSubmissionByLookup(trimmed);
-  if (fromSubmission) return submissionToAsset(fromSubmission, 0);
+  const all = await loadCatalogAssets();
+  const param = trimmed.toLowerCase();
 
-  const fromAsset = await getAssetFromDbFallback(trimmed);
-  if (fromAsset) return fromAsset;
+  const fromList =
+    all.find((asset) => asset.slug === param) ??
+    all.find(
+      (asset) =>
+        asset.id.toLowerCase() === param ||
+        asset.displayId?.toLowerCase() === param ||
+        asset.sourceSubmissionId?.toLowerCase() === param,
+    );
+  if (fromList) return fromList;
 
-  const registry = REGISTRY_ASSETS.find((asset) => asset.id.toUpperCase() === trimmed.toUpperCase());
-  return registry ? registryToCatalogAsset(registry) : null;
+  const direct = await getCatalogAssetDirectLookup(trimmed);
+  if (!direct) return null;
+
+  return assignCatalogSlugs([direct])[0];
 }
 
-/** Load catalog rows from `submissions` — canonical DB table for all accelerator metadata. */
+async function getCatalogAssetDirectLookup(id: string): Promise<CatalogAsset | null> {
+  const fromSubmission = await getCatalogSubmissionByLookup(id);
+  if (fromSubmission) return submissionToAsset(fromSubmission, 0);
+
+  const fromAsset = await getAssetFromDbFallback(id);
+  if (fromAsset) return fromAsset;
+
+  const registry = REGISTRY_ASSETS.find((asset) => asset.id.toUpperCase() === id.toUpperCase());
+  return registry ? registryToCatalogAsset(registry) : null;
+}
 async function loadCatalogFromSubmissions(): Promise<CatalogAsset[]> {
   if (!supabase) return [];
 
@@ -250,6 +270,7 @@ function assetRowToCatalogAsset(row: AssetRow): CatalogAsset {
 
   return {
     id: row.id,
+    slug: '',
     displayId: row.id,
     name: row.name,
     family,
@@ -293,6 +314,7 @@ function registryToCatalogAsset(asset: (typeof REGISTRY_ASSETS)[number]): Catalo
   const demoUrl = 'demoUrl' in asset ? asset.demoUrl : undefined;
   return {
     ...asset,
+    slug: '',
     displayId: asset.id,
     launchDemoUrl: demoUrl,
     demoUrl,
@@ -365,6 +387,7 @@ function submissionToAsset(submission: PipelineSubmission, index: number): Catal
 
   return {
     id: catalogId ?? submission.id,
+    slug: '',
     displayId,
     name: submission.name,
     family,

@@ -1,22 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BrainCircuit } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFamilies } from '../context/FamiliesContext';
+import { useAuth } from '../context/AuthContext';
 import { loadCatalogAssets, type CatalogAsset } from '../lib/catalog';
-import {
-  handleAzureRedirect,
-  isAzureSsoConfigured,
-  signInWithAzureSso,
-} from '../lib/azureAuth';
 
 function MicrosoftLogo() {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 23 23" aria-hidden>
-      <rect x="1" y="1" width="10" height="10" fill="#f25022" />
-      <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
-      <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
-      <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+    <svg className="h-5 w-5" viewBox="0 0 21 21" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
     </svg>
   );
 }
@@ -24,11 +20,18 @@ function MicrosoftLogo() {
 export const Login: React.FC = () => {
   const [assets, setAssets] = useState<CatalogAsset[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isSsoLoading, setIsSsoLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { families, loading: familiesLoading } = useFamilies();
+  const { session, user, loading: authLoading, authError, clearAuthError, signInWithMicrosoft } =
+    useAuth();
+
+  useEffect(() => {
+    if (!authLoading && (session || user)) {
+      navigate('/', { replace: true });
+    }
+  }, [authLoading, session, user, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,58 +51,18 @@ export const Login: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function completeRedirectLogin() {
-      if (!isAzureSsoConfigured) {
-        setIsCheckingSession(false);
-        return;
-      }
-
-      try {
-        const user = await handleAzureRedirect();
-        if (!cancelled && user?.email) {
-          navigate('/', { replace: true });
-          return;
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Microsoft sign-in could not be completed. Please try again.',
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsCheckingSession(false);
-        }
-      }
-    }
-
-    void completeRedirectLogin();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
-
-  const handleSsoSignIn = async () => {
-    setError(null);
-    setIsSigningIn(true);
-
+  const handleMicrosoftSignIn = async () => {
+    setIsSsoLoading(true);
+    clearAuthError();
     try {
-      await signInWithAzureSso();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to start Microsoft sign-in. Please try again.',
-      );
-      setIsSigningIn(false);
+      await signInWithMicrosoft();
+    } finally {
+      setIsSsoLoading(false);
     }
   };
+
+  const displayError =
+    authError ?? (location.state as { authError?: string } | null)?.authError ?? null;
 
   const familyEntries = Object.entries(families);
 
@@ -217,39 +180,33 @@ export const Login: React.FC = () => {
               <p className="text-slate-500">Use your InfoVision Microsoft account</p>
             </div>
 
-            {isCheckingSession ? (
+            {authLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-500" />
               </div>
             ) : (
               <div className="space-y-4">
+                {displayError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {displayError}
+                  </motion.div>
+                )}
+
                 <motion.button
-                  whileHover={{ scale: isAzureSsoConfigured && !isSigningIn ? 1.01 : 1 }}
-                  whileTap={{ scale: isAzureSsoConfigured && !isSigningIn ? 0.99 : 1 }}
+                  whileHover={{ scale: isSsoLoading ? 1 : 1.01 }}
+                  whileTap={{ scale: isSsoLoading ? 1 : 0.99 }}
                   type="button"
-                  onClick={() => void handleSsoSignIn()}
-                  disabled={!isAzureSsoConfigured || isSigningIn}
-                  className={`flex w-full items-center justify-center gap-3 rounded-xl border py-3.5 font-medium shadow-sm transition-all duration-300 ${
-                    isAzureSsoConfigured && !isSigningIn
-                      ? 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md'
-                      : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                  }`}
+                  onClick={() => void handleMicrosoftSignIn()}
+                  disabled={isSsoLoading}
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 font-medium text-slate-800 shadow-sm transition-all duration-300 hover:bg-slate-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <MicrosoftLogo />
-                  {isSigningIn ? 'Redirecting to Microsoft…' : 'Sign in with SSO'}
+                  {isSsoLoading ? 'Redirecting to Microsoft…' : 'Sign in with SSO'}
                 </motion.button>
-
-                {!isAzureSsoConfigured && (
-                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    Microsoft SSO is not configured. Add <code className="rounded bg-white/80 px-1">VITE_AZURE_CLIENT_ID</code> and <code className="rounded bg-white/80 px-1">VITE_AZURE_TENANT_ID</code> to your environment.
-                  </p>
-                )}
-
-                {error && (
-                  <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </p>
-                )}
 
                 <p className="text-center text-sm text-slate-500">
                   Secured with Microsoft Entra ID (Azure AD)

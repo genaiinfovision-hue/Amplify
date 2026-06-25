@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { defaultFamilyBadge, useFamilies } from '../../context/FamiliesContext';
 import { CC, CL, MC, ML, EC } from '../../data/uiConstants';
+import { catalogAssetPath } from '../../lib/catalogSlug';
 import { CheckCircle2 } from 'lucide-react';
 
 interface AssetCardProps {
@@ -20,7 +21,7 @@ export function AssetCard({ asset, index }: AssetCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.04, ease: "easeOut" }}
       whileHover={{ y: -4, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
-      onClick={() => navigate(`/catalog/${asset.id}`)}
+      onClick={() => navigate(catalogAssetPath(asset))}
       className="relative z-10 flex cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-300"
       style={{ borderTop: `3px solid ${fm.color}` }}
     >

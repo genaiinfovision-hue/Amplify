@@ -6,4 +6,15 @@ const supabaseKey = (
   import.meta.env.VITE_SUPABASE_ANON_KEY
 ) as string | undefined;
 
-export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+export const supabase =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          // Callback route handles PKCE exchange explicitly (avoids double exchange).
+          detectSessionInUrl: false,
+          flowType: 'pkce',
+        },
+      })
+    : null;

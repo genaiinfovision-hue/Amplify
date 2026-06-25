@@ -1,4 +1,5 @@
 import type { CatalogAsset } from './catalog';
+import { catalogDemoPath } from './catalogSlug';
 
 /** Catalog asset that embeds ArchEval inside AIMPLIFY (not external redirect). */
 export const EMBEDDED_DEMO_CATALOG_ID = 'NXS-001';
@@ -23,10 +24,10 @@ export type LaunchDemoTarget =
   | { mode: 'external'; url: string }
   | { mode: 'unavailable' };
 
-export function resolveLaunchDemo(asset: CatalogAsset, routeId: string): LaunchDemoTarget {
+export function resolveLaunchDemo(asset: CatalogAsset): LaunchDemoTarget {
   const slug = resolveInternalDemoSlug(asset);
   if (slug) {
-    return { mode: 'internal', path: `/catalog/${routeId}/demo`, slug };
+    return { mode: 'internal', path: catalogDemoPath(asset), slug };
   }
 
   const url = asset.launchDemoUrl ?? asset.demoUrl;
